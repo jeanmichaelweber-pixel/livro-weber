@@ -45,6 +45,16 @@
   .inp { width: 100%; font-size: 17px; padding: 11px; border: 1px solid #b9c4bc; border-radius: 9px; margin-top: 10px; }
   .env { display: block; width: 100%; margin-top: 14px; font-size: 20px; font-weight: bold; padding: 16px; border: 0; border-radius: 12px; background: #2e7d32; color: #fff; }
   .ok2 { background: #e3f1e4; border: 2px solid #2e7d32; border-radius: 12px; padding: 12px; margin-bottom: 12px; white-space: pre-line; }
+  .sec { font-weight: bold; margin: 10px 0 6px; color: #1f5c2e; }
+  .lin { font-size: 14px; padding: 6px 0; border-bottom: 1px solid #eee; }
+  .lin small { color: #5c6b61; }
+  .pill { display: inline-block; border-radius: 12px; padding: 3px 9px; margin: 3px 4px 3px 0; font-size: 13px; background: #eceff1; }
+  .pill.ok { background: #dcf5e3; } .pill.no { background: #fde2e1; }
+  .bt { border: 0; border-radius: 8px; padding: 9px 12px; font-weight: bold; font-size: 14px; margin: 6px 6px 0 0; }
+  .bt.g { background: #2e7d32; color: #fff; } .bt.o { background: #ef6c00; color: #fff; } .bt.b { background: #1565c0; color: #fff; }
+  .prb { background: #fdecea; border-radius: 10px; padding: 10px; margin: 8px 0; font-size: 14px; }
+  .prb img { width: 70px; height: 70px; object-fit: cover; border-radius: 8px; margin: 6px 6px 0 0; }
+  table.pv { border-collapse: collapse; width: 100%; font-size: 13px; } table.pv td { border-bottom: 1px solid #eee; padding: 5px 4px; vertical-align: top; }
   textarea.ord { width: 100%; height: 260px; font-size: 13px; border-radius: 9px; border: 1px solid #b9c4bc; padding: 8px; } .fechar { background: var(--verde); color: #fff; width: 100%; margin-top: 12px; font-size: 16px; padding: 12px; }
 </style>
 </head>
@@ -53,6 +63,7 @@
 <iframe id="tela" title="Livro"></iframe>
 <div id="home" class="tela2"></div>
 <div id="cocho" class="tela2"></div>
+<div id="painel2" class="tela2"></div>
 <div id="aviso"></div>
 <div id="painel"><div class="box" id="pbox"></div></div>
 <script>
@@ -76,7 +87,7 @@
     if (prm.get('api2') && prm.get('k2')) faz.push({ api: prm.get('api2'), k: prm.get('k2'), n: prm.get('n2') || '' });
     const mudou = !cfg || JSON.stringify(cfg.faz.map(function (f) { return f.api; })) !== JSON.stringify(faz.map(function (f) { return f.api; }));
     if (mudou) [0, 1].forEach(function (i) { localStorage.removeItem(K.dados + '_' + i); localStorage.removeItem(K.img + '_' + i); });
-    cfg = { u: prm.get('u') || '', faz: faz, atual: 0 }; gravar(K.cfg, cfg);
+    cfg = { u: prm.get('u') || '', g: prm.get('g') || '', faz: faz, atual: 0 }; gravar(K.cfg, cfg);
     history.replaceState(null, '', location.pathname + '#menu');
   }
   const BASE = location.href.split('#')[0].split('?')[0];
@@ -171,7 +182,7 @@
     return api + (api.indexOf('?') >= 0 ? '&' : '?') + q;
   }
   async function pedir(params, fz) {
-    const ctl = new AbortController(); const t = setTimeout(function () { ctl.abort(); }, 45000);
+    const ctl = new AbortController(); const t = setTimeout(function () { ctl.abort(); }, 150000);
     try {
       const r = await fetch(url(params, fz), { method: 'GET', redirect: 'follow', signal: ctl.signal, cache: 'no-store' });
       if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -185,7 +196,7 @@
     for (let i = 0; i < cfg.faz.length; i++) {
       try {
         const temImg = !!lerImg(i);
-        const o = await pedir({ k: cfg.faz[i].k, u: cfg.u, app: 'dados', img: temImg ? '0' : '1' }, i);
+        const o = await pedir(Object.assign({ k: cfg.faz[i].k, u: cfg.u, app: 'dados', img: temImg ? '0' : '1' }, cfg.g ? { g: cfg.g } : {}), i);
         if (!o.ok) { if (i === cfg.atual) aviso('⚠️ ' + (o.erro || 'Erro ao buscar os dados.')); continue; }
         if (o.img) { try { localStorage.setItem(ki(i), o.img); } catch (e) { } delete o.img; }
         if (fila.length) return;             // chegou lançamento novo enquanto buscava
@@ -341,7 +352,7 @@
     'livroGravar:function(k,d){P.gravar(d).then(s,f)},livroMover:function(k,d){P.mover(d).then(s,f)}};return r}' +
     'window.google={script:{get run(){return R()}}};})();<\/script>';
 
-  function esconder() { ['aviso', 'tela', 'home', 'cocho'].forEach(function (i) { $(i).style.display = 'none'; }); }
+  function esconder() { ['aviso', 'tela', 'home', 'cocho', 'painel2'].forEach(function (i) { $(i).style.display = 'none'; }); }
   function aviso(html) { esconder(); $('aviso').innerHTML = html; $('aviso').style.display = 'block'; }
 
   // ── tela inicial: tudo da fazenda num lugar só ──
@@ -354,10 +365,82 @@
       (dados.cocho ? '<a href="#cocho">🐄 Leitura de cocho<small>Confinamento — 0, 1 ou 2 por baia' + (dados.cocho.ultima === hojeLocal() ? ' · ✅ hoje já enviada' : pendenteCocho() ? ' · 📥 guardada, esperando sinal' : '') + '</small></a>' : '') +
       '<a class="c2" href="#livro">📒 Lançamentos<small>Diário · Suplementação · Problema · Nascimento · Morte · Pesagem…</small></a>' +
       (dados.mapa ? '<a class="c3" href="#mapa">🗺️ Mapa da fazenda<small>Gado em cada pasto · trocar de pasto · histórico</small></a>' : '') +
+      (dados.gerente ? '<a class="c4" href="#painel" style="border-left-color:#1565c0">📊 Painel da gerência<small>As duas fazendas · problemas · estoque · fechar o mapa</small></a>' : '') +
       (outra ? '<button class="bb c4" id="trocar">🔄 Ir para a fazenda ' + esc(outra.n || 'outra') + '<small>Você trabalha nas duas</small></button>' : '') +
       '</div>';
     h.style.display = 'block';
     if ($('trocar')) $('trocar').onclick = function () { trocarFazenda(cfg.atual === 0 ? 1 : 0); };
+    barra();
+  }
+
+  // ── painel da gerência (lê o que o app baixou das duas fazendas) ──
+  function brD(iso) { return iso ? iso.slice(8, 10) + '/' + iso.slice(5, 7) : ''; }
+  function telaPainel() {
+    esconder();
+    const el = $('painel2');
+    let h = '<div class="hd"><a href="#menu">◀ Menu</a><h1>📊 Painel</h1><p>' + esc(cfg.u) + ' · dados de ' + esc(dados.atualizado || '') + '</p></div><div class="cx">';
+    cfg.faz.forEach(function (f, i) {
+      const d = i === cfg.atual ? dados : ler(kd(i), null);
+      if (!d || !d.painel) { h += '<div class="card"><b>' + esc(f.n || 'Fazenda') + '</b><br><small>Sem dados ainda — abra com sinal.</small></div>'; return; }
+      const P = d.painel;
+      h += '<div class="card"><h2 style="margin:0 0 6px">🌾 ' + esc(d.fazenda) + (P.rebanho !== null && P.rebanho !== undefined ? ' <small style="font-weight:normal">· ' + P.rebanho + ' cabeças</small>' : '') + '</h2>';
+      h += '<div class="sec">👷 Equipe hoje</div>' + (P.equipe || []).map(function (e) {
+        return '<span class="pill ' + (e.hoje ? 'ok' : 'no') + '">' + (e.hoje ? '✅ ' : '⬜ ') + esc(e.nome) + (e.hoje ? ' (' + e.hoje + ')' : e.ultimo ? ' · últ. ' + brD(e.ultimo) : '') + '</span>';
+      }).join('');
+      if (P.cocho) h += '<div class="sec">🐄 Cocho</div><div class="lin">' + (P.cocho.hoje ? '✅ Leitura de hoje feita (' + esc(P.cocho.quem) + ')<br><small>' + esc(P.cocho.det) + '</small>' : '⬜ Ainda sem leitura hoje') + '</div>';
+      h += '<div class="sec">⚠️ Problemas abertos (' + (P.problemas || []).length + ')</div>' + ((P.problemas || []).length ? P.problemas.map(function (p) {
+        return '<div class="prb"><b>' + esc(p.tipo) + '</b> · ' + esc(p.pasto) + ' · ' + brD(p.d) + ' · ' + esc(p.quem) + '<br>' + esc(p.desc) +
+          (p.fotos && p.fotos.length ? '<br>' + p.fotos.map(function (id) { return '<img loading="lazy" src="https://drive.google.com/thumbnail?id=' + encodeURIComponent(id) + '&sz=w200" alt="📷">'; }).join('') : '') +
+          '<br><button class="bt g" data-res="' + esc(p.id) + '" data-fz="' + i + '">✅ Resolver</button></div>';
+      }).join('') : '<div class="lin"><small>Nenhum.</small></div>');
+      if (P.estoque) h += '<div class="sec">🧂 Estoque de mineral (sacos)</div>' + Object.keys(P.estoque).map(function (k) {
+        return '<span class="pill ' + (P.estoque[k] <= 0 ? 'no' : '') + '">' + esc(k) + ': <b>' + String(P.estoque[k]).replace('.', ',') + '</b></span>';
+      }).join('');
+      if (d.fechamento) {
+        const F2 = d.fechamento; let tot = 0;
+        h += '<div class="sec">📋 Mapa de ' + esc(F2.txt) + ' <small>(' + esc(F2.estado) + ')</small></div><table class="pv">' + F2.linhas.map(function (l) {
+          const t = l.cats.reduce(function (s2, c) { return s2 + c.q; }, 0); tot += t;
+          return '<tr><td><b>' + esc(l.pasto) + '</b><br><small>' + t + ' cab</small></td><td>' + l.cats.map(function (c) { return c.q + ' ' + esc(c.c) + (c.p ? ' · ' + c.p + ' kg' : ''); }).join('<br>') + '</td></tr>';
+        }).join('') + '</table><div class="lin"><b>Total: ' + tot + ' cabeças</b> <small>(base: mapa de ' + esc(F2.base || '—') + ' + lançamentos)</small></div>' +
+          (F2.estado !== 'FECHADO' ? '<button class="bt g" data-fe="CONFIRMAR" data-fz="' + i + '" data-mes="' + F2.mes + '">✅ Confirmar como está</button>' +
+            '<button class="bt o" data-fe="RASCUNHO" data-fz="' + i + '" data-mes="' + F2.mes + '">✏️ Rascunho para ajustar no livro</button>' +
+            (F2.estado === 'RASCUNHO' ? '<button class="bt b" data-fe="CONFIRMAR_ABA" data-fz="' + i + '" data-mes="' + F2.mes + '">✔️ Confirmar o que está na aba</button>' : '')
+            : '<div class="lin">✅ Fechado.</div>');
+      }
+      h += '<div class="sec">🕒 Últimos lançamentos (3 dias)</div>' + ((P.ultimos || []).length ? P.ultimos.map(function (u) {
+        return '<div class="lin"><small>' + esc(u.h) + ' · ' + esc(u.quem) + '</small><br>' + esc(u.tipo) + (u.pasto ? ' · <b>' + esc(u.pasto) + '</b>' : '') + (u.det ? '<br><small>' + esc(u.det) + '</small>' : '') + '</div>';
+      }).join('') : '<div class="lin"><small>Nada.</small></div>');
+      h += '</div>';
+    });
+    h += '</div>';
+    el.innerHTML = h; el.style.display = 'block';
+    el.querySelectorAll('[data-res]').forEach(function (b) {
+      b.onclick = async function () {
+        if (!navigator.onLine) { alert('Precisa de sinal para resolver.'); return; }
+        const como = prompt('Como foi resolvido?'); if (como === null) return;
+        b.disabled = true; b.textContent = 'Gravando…';
+        try {
+          const fz = +b.dataset.fz;
+          const o = await pedir({ k: cfg.faz[fz].k, g: cfg.g, u: cfg.u, app: 'resolver', id: b.dataset.res, como: como }, fz);
+          alert(o.ok ? o.msg : '⚠️ ' + o.erro);
+        } catch (e) { alert('Sem conexão. Tente de novo.'); }
+        await atualizar(true); telaPainel();
+      };
+    });
+    el.querySelectorAll('[data-fe]').forEach(function (b) {
+      b.onclick = async function () {
+        if (!navigator.onLine) { alert('Precisa de sinal para fechar o mapa.'); return; }
+        const txt = { CONFIRMAR: 'Confirmar o mapa como está e gravar na aba do mês?', RASCUNHO: 'Gravar como rascunho na aba do mês, para ajustar no livro?', CONFIRMAR_ABA: 'Confirmar o que está na aba (com os seus ajustes)?' }[b.dataset.fe];
+        if (!confirm(txt)) return;
+        b.disabled = true; b.textContent = 'Gravando…';
+        try {
+          const fz = +b.dataset.fz;
+          const o = await pedir({ k: cfg.faz[fz].k, g: cfg.g, app: 'fechar', mes: b.dataset.mes, acao: b.dataset.fe }, fz);
+          alert(o.ok ? o.msg : '⚠️ ' + o.erro);
+        } catch (e) { alert('Sem conexão. Tente de novo.'); }
+        await atualizar(true); telaPainel();
+      };
+    });
     barra();
   }
 
@@ -404,6 +487,7 @@
     const hs = location.hash;
     if (!hs || hs === '#menu' || (hs === '#mapa' && !dados.mapa) || (hs === '#cocho' && !dados.cocho)) { telaInicio(); return; }
     if (hs === '#cocho') { telaCocho(); return; }
+    if (hs === '#painel' && dados.gerente) { telaPainel(); return; }
     esconder(); $('tela').style.display = 'block';
     const L = dados.listas;
     let html;

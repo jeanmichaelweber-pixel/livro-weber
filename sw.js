@@ -1,5 +1,5 @@
 // Livro Pecuário Weber — guarda o app no celular para abrir sem internet.
-const VERSAO = 'livro-weber-v3';
+const VERSAO = 'livro-weber-v4';
 const ARQUIVOS = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', function (e) {
